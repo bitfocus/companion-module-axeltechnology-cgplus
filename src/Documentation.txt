@@ -1,0 +1,30 @@
+Useful link to setup and develop companion modules:
+
+Windows enviroment Set-up:
+https://github.com/bitfocus/companion/wiki/Developing-on-Windows-10
+
+Module Development:
+https://github.com/bitfocus/companion/wiki/Module-Development
+
+Module Configuration:
+https://github.com/bitfocus/companion/wiki/Module-Configuration
+
+Actions:
+https://github.com/bitfocus/companion/wiki/Actions
+
+FeedBacks:
+https://github.com/bitfocus/companion/wiki/Feedback
+
+Presets:
+https://github.com/bitfocus/companion/wiki/Presets
+
+Variables:
+https://github.com/bitfocus/companion/wiki/Variables
+
+Companion instance_skel (their class):
+https://github.com/bitfocus/companion/wiki/instance_skel
+
+
+NEW 3.0 fnm setup and usage:
+https://github.com/bitfocus/companion-module-base/wiki
+https://github.com/Schniz/fnm#installation

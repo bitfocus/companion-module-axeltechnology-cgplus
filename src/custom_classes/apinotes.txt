@@ -1,0 +1,38 @@
+-----------------------------------------------------
+----> [CG Plus api functionality and types] <----
+-----------------------------------------------------
+
+->TakePage <Boolean> : params -> [channelName,PageName],
+  will take on Air the selected pages (multi and single alike)
+
+->TakePageOnPreview <Boolean> : params -> [channelName,PageName],
+  will take on Preview the selected pages (multi and single alike)
+
+->GetChannels <Channel structure>: params -> [null],
+  will return all channels saved on device 
+
+->GetPages <Page structure>: params -> [null],
+  will return all pages saved on device (only active ones)
+
+->ClearAllMultiPages <Boolean> : params -> [channelName],
+  will clear all multi pages, BUG : Api doesnt account for preview
+
+->GetPreviewOnAirStatus <Page structure> : params -> [null],
+  will return all pages active on preview
+
+-----------------------------------------------------
+        ----> [CG Plus api structure] <----
+-----------------------------------------------------
+
+<>
+    Channel/Page structure
+    ->{object array}<-
+    
+    str:=>  [
+                {
+                    Description:"",
+                    Index:"",
+                    Name:""
+                }
+            ]
+<>

@@ -1,21 +1,37 @@
 {
-	"name": "your-module-name",
+	"name": "axeltechnology-cgplus",
 	"version": "0.1.0",
 	"main": "main.js",
 	"scripts": {
-		"format": "prettier -w .",
-		"package": "companion-module-build"
+		"test": "echo \"Error: no test specified\" && exit 1"
 	},
 	"license": "MIT",
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/bitfocus/companion-module-your-module-name.git"
+		"url": "git+https://github.com/bitfocus/companion-module-axeltechnology-cgplus.git"
 	},
 	"dependencies": {
-		"@companion-module/base": "~1.7.0"
+		"@companion-module/base": "~1.5.1",
+		"node-fetch": "^3.3.2",
+		"webpack": "^5.90.1" 
 	},
 	"devDependencies": {
-		"@companion-module/tools": "^1.4.2"
-	},
-	"prettier": "@companion-module/tools/.prettierrc.json"
+		"@companion-module/tools": "~1.0.0",
+		"@types/jest": "~29.4.0",
+		"@types/lodash": "~4.14.190",
+		"@types/node": "~18.13.0",
+		"@types/xml2js": "~0.4.11",
+		"@typescript-eslint/eslint-plugin": "~5.51.0",
+		"@typescript-eslint/parser": "~5.51.0",
+		"eslint": "~8.33.0",
+		"eslint-config-prettier": "~8.6.0",
+		"eslint-plugin-prettier": "~4.2.1",
+		"husky": "~8.0.3",
+		"jest": "~29.4.2",
+		"lint-staged": "~13.1.1",
+		"prettier": "~2.8.4",
+		"rimraf": "~3.0.2",
+		"ts-jest": "~29.0.5",
+		"typescript": "~4.9.5"
+	}
 }

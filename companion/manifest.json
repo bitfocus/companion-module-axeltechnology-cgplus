@@ -1,8 +1,8 @@
 {
-	"id": "your-module-name",
-	"name": "your-module-name",
-	"shortname": "module-shortname",
-	"description": "A short one line description of your module",
+	"id": "axeltechnology-cgplus",
+	"name": "axeltechnology-cgplus",
+	"shortname": "CG Plus",
+	"description": "Axel: CG_Plus",
 	"version": "0.0.0",
 	"license": "MIT",
 	"repository": "git+https://github.com/bitfocus/companion-module-your-module-name.git",
@@ -20,7 +20,7 @@
 		"entrypoint": "../main.js"
 	},
 	"legacyIds": [],
-	"manufacturer": "Your company",
-	"products": ["Your product"],
+	"manufacturer": "Axel Technology",
+	"products": ["CG Plus"],
 	"keywords": []
 }
