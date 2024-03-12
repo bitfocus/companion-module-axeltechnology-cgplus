@@ -18,7 +18,7 @@ class CGPlusModule extends InstanceBase {
 	tmpActivePages = new Array() //List of temporary pages that have been clicked (colors them before api response)
 	tmpStatus = []
 	tmpCounter = 0; 
-
+	GetApi;
 	flipflop = false
 	autoPreview = false
 	
@@ -26,6 +26,7 @@ class CGPlusModule extends InstanceBase {
 	constructor(internal) {
 		super(internal)
 
+		this.GetApi = null;
 		this.onAirStatus = []
 
 		//assign const variables to the class, this way you can use their function/classes whit this.VARIABLE/FUNCTION
@@ -68,6 +69,30 @@ class CGPlusModule extends InstanceBase {
 	}
 
 	//--------------------------------------------------------------------------
+	//  This function manages the logging, since we cant use this.log elsewhere
+	//  we'll have to pass this function as callback to custom elements
+	//  (i hope this is the right way ^^)
+	//--------------------------------------------------------------------------
+
+	LogManager = (eType, message) => {
+		try
+		 {
+			if (eType === 'error' || eType === 'warn' || eType === 'info' || eType === 'debug')
+			{
+				this.log(eType, message);
+			} 
+			else 
+			{
+				console.error('Unknown log type:', eType);
+			}
+		} 
+		catch (error) 
+		{
+			console.error('Error in LogManager:', error);
+		}
+	}
+
+	//--------------------------------------------------------------------------
 	//  when module gets first added, all internal functions and my
 	//  custom preferences will be initialized so that they can be used
 	//--------------------------------------------------------------------------
@@ -79,9 +104,7 @@ class CGPlusModule extends InstanceBase {
 		this.updatePresets()// export presets
 		this.updateFeedbacks() // export feedbacks
 		this.updateVariableDefinitions() // export variable definitions
-		this.initCGPlus(config) // initialize
-		await this.checkConnectionStatus(this.config) // check connection status
-		
+		await this.initCGPlus(config) // initialize
 	}
 
 	//--------------------------------------------------------------------------
@@ -89,10 +112,22 @@ class CGPlusModule extends InstanceBase {
 	//  endpoint in the configuration
 	//--------------------------------------------------------------------------
 
-	initCGPlus = (config) => {
-		this.log('initCGPlus', config)
-		this.GetApi = new CGPlus(config.host, config.port)
-		this.KeyPad = new Keypad()
+	initCGPlus = async (config) => 
+	{
+
+		if(config.host != '' && config.port != '' && config.channel != '')
+		{
+			this.GetApi = new CGPlus(config.host, config.port,this.LogManager)
+			this.KeyPad = new Keypad()
+			
+			await this.checkConnectionStatus(config)
+		}
+		else
+		{
+			//console.log("CONFIGS:",config)
+
+			this.LogManager("warn","Missing configuration for the module")
+		}
 	}
 
 	//--------------------------------------------------------------------------
@@ -103,18 +138,26 @@ class CGPlusModule extends InstanceBase {
 	//--------------------------------------------------------------------------
 
 	async checkConnectionStatus(config) {
-		this.log('checkConnectionStatus');
+
+		this.updateStatus(InstanceStatus.Connecting);
+
+		let res = false;
+
+		if(this.GetApi != null)
+		{
+			res = await this.GetApi.Connect();
+		}
+		
 	
-		let res = await this.GetApi.Connect();
-	
-		console.log('res', res);
-	
-		if (res) {
+		if (res) 
+		{	
+
 			let channels = await this.GetApi.GetChannels();
 	
-			if (this.checkIfChannelIsActive(channels, "Channel " + config.channel)) {
+			if (channels && this.checkIfChannelIsActive(channels, "Channel " + config.channel)) 
+			{
 				this.selectedChannel = "Channel " + config.channel;
-				this.log('CONNECTION SUCCESSFUL');
+				this.LogManager('info','CONNECTION SUCCESSFUL');
 				this.updateStatus(InstanceStatus.Ok);
 	
 				 // Move the declaration inside the method
@@ -148,13 +191,17 @@ class CGPlusModule extends InstanceBase {
 					await this.setConfiguredPages()
 				}, 5000);
 
-			} else {
-				this.log('error', 'no connection');
-				this.updateStatus(InstanceStatus.UnknownError);
+			} 
+			else 
+			{
+				this.LogManager('error', 'no connection');
+				this.updateStatus(InstanceStatus.ConnectionFailure);
 			}
-		} else {
-			this.log('error', 'no connection');
-			this.updateStatus(InstanceStatus.UnknownError);
+		} 
+		else 
+		{
+			this.LogManager('warn', 'no endpoint');
+			this.updateStatus(InstanceStatus.UnknownWarning);
 		}
 	}
 	
@@ -189,7 +236,7 @@ class CGPlusModule extends InstanceBase {
 	}
 
 	//--------------------------------------------------------------------------
-	//  Function called inside clock, will call status api and will save on air
+	//  Polling Function, will call status api and will save on air
 	//  pages, this data will then be use by feedbacks and actions (keep all responsive)
 	//--------------------------------------------------------------------------
 	
@@ -302,7 +349,7 @@ class CGPlusModule extends InstanceBase {
 
 	//--------------------------------------------------------------------------
 	//  toggles beetween last channel and preview (basically a toggle) and 
-	//  this permits the user to easily 
+	//  this permits the user to easily switch between them
 	//--------------------------------------------------------------------------
 	
 	isPreview() {
@@ -319,8 +366,9 @@ class CGPlusModule extends InstanceBase {
 	}
 
 	//--------------------------------------------------------------------------
-	//  toggles beetween last channel and preview (basically a toggle) and 
-	//  this permits the user to easily 
+	// Returns wether the preview or the program are blank (no page On Air)
+	// idk why only the program has a blank object when empty while the prw doesn't
+	// wont ask questions about it :|
 	//--------------------------------------------------------------------------
 	
 	isBlank() {
@@ -364,7 +412,7 @@ class CGPlusModule extends InstanceBase {
 	}
 
 	//--------------------------------------------------------------------------
-	// returns pagetype (single multi)
+	// returns pagetype (single/multi)
 	//--------------------------------------------------------------------------
 
 	pageType(string){
@@ -478,8 +526,9 @@ class CGPlusModule extends InstanceBase {
 	//  When module gets deleted, cleanup
 	//--------------------------------------------------------------------------
 
-	async destroy() {
-		this.log('debug', 'destroy')
+	async destroy() 
+	{
+		this.LogManager('debug', 'destroy')
 		clearInterval(this.createClock)
 		clearInterval(this.createFeedClock)
 		clearInterval(this.createConfiguredChannelsClock)
@@ -489,11 +538,10 @@ class CGPlusModule extends InstanceBase {
 	//  When Config is updated (Reinitialization of api class (Endpoint Changes))
 	//--------------------------------------------------------------------------
 
-	async configUpdated(config) {
-		
-		//console.log('CONFIGS !!! UPDATED', this.config)
+	async configUpdated(config) 
+	{
 		this.config = config
-		console.log('CONFIGS UPDATED', this.config)
+		//console.log('CONFIGS UPDATED', this.config)
 		this.initCGPlus(config)
 		await this.checkConnectionStatus(config) // check connection status
 		this.updateActions() // export actions
@@ -502,31 +550,34 @@ class CGPlusModule extends InstanceBase {
 		this.updateVariableDefinitions() // export variable definitions
 	}
 
-	
-
 	//--------------------------------------------------------------------------
 
-	updateActions() {
+	updateActions() 
+	{
 		UpdateActions(this)
 	}
 
 	//--------------------------------------------------------------------------
 
-	updatePresets(){
+	updatePresets()
+	{
 		UpdatePresets(this)
 	}
 
 	//--------------------------------------------------------------------------
 
-	updateFeedbacks() {
+	updateFeedbacks() 
+	{
 		UpdateFeedbacks(this)
 	}
 
 	//--------------------------------------------------------------------------
 
-	updateVariableDefinitions() {
+	updateVariableDefinitions() 
+	{
 		UpdateVariableDefinitions(this)
 	}
+
 
 	//--------------------------------------------------------------------------
 }
