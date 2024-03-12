@@ -16,7 +16,7 @@ We highly recommend utilizing preset buttons provided within the module. These p
 
 ## Issue Reporting
 
-If you encounter any issues or have suggestions for improvement, please [create an issue](https://https://github.com/bitfocus/companion-module-axeltechnology-cgplus/issues) on our GitHub repository. Our team will review and address them promptly.
+If you encounter any issues or have suggestions for improvement, please [create an issue](https://github.com/bitfocus/companion-module-axeltechnology-cgplus/issues) on our GitHub repository. Our team will review and address them promptly.
 
 ## Updates and Maintenance
 
