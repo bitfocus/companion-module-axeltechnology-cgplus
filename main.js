@@ -27,7 +27,6 @@ class CGPlusModule extends InstanceBase {
 
 	constructor(internal) {
 		super(internal)
-
 		this.GetApi = null;
 		this.onAirStatus = []
 
@@ -110,25 +109,49 @@ class CGPlusModule extends InstanceBase {
 	}
 
 	//--------------------------------------------------------------------------
+	//  When Config is updated (Reinitialization of api class (Endpoint Changes))
+	//--------------------------------------------------------------------------
+
+	async configUpdated(config) {
+
+		console.log("configUpdated",config)
+	
+
+		if(config.host && config.port && config.channel){
+
+			this.LogManager("warn", "CONFIGS UPDATED" + config);
+			this.config = config;
+			this.clearIntervals()
+			await this.initCGPlus(this.config); // Reinitialize with updated configuration
+			this.updateActions(); // Export actions
+			this.updatePresets(); // Export presets
+			this.updateFeedbacks(); // Export feedbacks
+			this.updateVariableDefinitions(); // Export variable definitions
+
+		} else {
+				this.LogManager("warn", "Missing configuration for the module");
+			this.updateStatus(InstanceStatus.BadConfig);
+		}
+	}
+
+
+	//--------------------------------------------------------------------------
 	//  initialize connection with the CGPlus instance, needed to set an updated
 	//  endpoint in the configuration
 	//--------------------------------------------------------------------------
 
-	initCGPlus = async (config) => 
-	{
-
-		if(config.host != '' && config.port != '' && config.channel != '')
-		{
-			this.GetApi = new CGPlus(config.host, config.port,this.LogManager)
-			this.KeyPad = new Keypad()
+	initCGPlus = async (config) => {
+		console.log("initCGPlus",config)
+		this.LogManager("warn", "initCGPlus" + config.host);
+		if (config.host && config.port && config.channel) { // Check if all necessary config parameters are provided
+			
+			this.GetApi = new CGPlus(config.host, config.port, this.LogManager);
+			this.KeyPad = new Keypad();
 			this.updateStatus(InstanceStatus.Connecting);
-			await this.checkConnectionStatus(config)
-		}
-		else
-		{
-			//console.log("CONFIGS:",config)
+			await this.checkConnectionStatus(config);
+		} else {
 			this.updateStatus(InstanceStatus.ConnectionFailure);
-			this.LogManager("warn","Missing configuration for the module")
+			this.LogManager("warn", "Missing configuration for the module");
 		}
 	}
 
@@ -140,6 +163,13 @@ class CGPlusModule extends InstanceBase {
 	//--------------------------------------------------------------------------
 
 	async checkConnectionStatus(config) {
+
+		if (!config.host || !config.port || !config.channel) {
+			this.LogManager("warn", "No configuration");
+			this.updateStatus(InstanceStatus.ConnectionFailure);
+			return;
+		}
+
 		this.selectedChannel = "Channel " + config.channel;
 	
 		const connectAndSetup = async () => {
@@ -169,7 +199,7 @@ class CGPlusModule extends InstanceBase {
 			}
 		};
 	
-		connectAndSetup();
+		await connectAndSetup();
 	
 		// Set up interval for connection management
 		this.connectionManagerClock = setInterval(connectAndSetup, 5000);
@@ -533,28 +563,14 @@ class CGPlusModule extends InstanceBase {
 	async destroy() 
 	{
 		this.LogManager('error', 'destroy')
-		clearInterval(this.createClock)
-		clearInterval(this.createFeedClock)
-		clearInterval(this.createConfiguredChannelsClock)
-		clearInterval(this.connectionManagerClock)
+		this.clearIntervals()
+		this.GetApi = null
+		this.KeyPad = null
+		this.config = null;
+        this.updateStatus(InstanceStatus.Disconnected);
 	}
 
-	//--------------------------------------------------------------------------
-	//  When Config is updated (Reinitialization of api class (Endpoint Changes))
-	//--------------------------------------------------------------------------
-
-	async configUpdated(config) 
-	{
-		this.config = config
-		//console.log('CONFIGS UPDATED', this.config)
-		this.initCGPlus(config)
-		await this.checkConnectionStatus(config) // check connection status
-		this.updateActions() // export actions
-		this.updatePresets()// export presets
-		this.updateFeedbacks() // export feedbacks
-		this.updateVariableDefinitions() // export variable definitions
-	}
-
+	
 	//--------------------------------------------------------------------------
 
 	updateActions() 
