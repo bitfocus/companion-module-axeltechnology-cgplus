@@ -5,22 +5,22 @@
 	"description": "Axel: CG_Plus",
 	"version": "0.0.0",
 	"license": "MIT",
-	"repository": "git+https://github.com/bitfocus/companion-module-your-module-name.git",
-	"bugs": "https://github.com/bitfocus/companion-module-your-module-name/issues",
+	"repository": "git+https://https://github.com/bitfocus/companion-module-axeltechnology-cgplus.git",
+	"bugs": "https://https://github.com/bitfocus/companion-module-axeltechnology-cgplus/issues",
 	"maintainers": [
 		{
-			"name": "Your name",
-			"email": "Your email"
+			"name": "Ruslan Rolkin",
+			"email": "ruslan.rolkin@axeltechnology.com"
 		}
 	],
 	"runtime": {
 		"type": "node18",
 		"api": "nodejs-ipc",
-		"apiVersion": "0.0.0",
+		"apiVersion": "1.0.0",
 		"entrypoint": "../main.js"
 	},
 	"legacyIds": [],
-	"manufacturer": "Axel Technology",
+	"manufacturer": "AxelTechnology",
 	"products": ["CG Plus"],
-	"keywords": []
+	"keywords": ["axel,technology,cg,cgplus,video,broadcast,news,plus,axe"]
 }
