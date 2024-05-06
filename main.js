@@ -12,20 +12,23 @@ class CGPlusModule extends InstanceBase {
 
 	//value used in the keypad reset timeout, used to prevent multiple timeouts to be created
 	interval = 0
-	configuredPages = new Array() //List of pages that have been configured
+	configuredPages = new Array([]) //List of pages that have been configured
 	selectedChannel = ''
 	lastChannel = ''
-	tmpActivePages = new Array() //List of temporary pages that have been clicked (colors them before api response)
+	tmpActivePages = new Array([]) //List of temporary pages that have been clicked (colors them before api response)
 	tmpStatus = []
 	tmpCounter = 0; 
+	GetApi = null;
+	flipflop = false;
+	autoPreview = false;
+	isConnected = false;
+	isFirstConnection = true;
 
-	flipflop = false
-	autoPreview = false
-	
 
 	constructor(internal) {
 		super(internal)
 
+		this.GetApi = null;
 		this.onAirStatus = []
 
 		//assign const variables to the class, this way you can use their function/classes whit this.VARIABLE/FUNCTION
@@ -68,20 +71,42 @@ class CGPlusModule extends InstanceBase {
 	}
 
 	//--------------------------------------------------------------------------
+	//  This function manages the logging, since we cant use this.log elsewhere
+	//  we'll have to pass this function as callback to custom elements
+	//  (i hope this is the right way ^^)
+	//--------------------------------------------------------------------------
+
+	LogManager = (eType, message) => {
+		try
+		 {
+			if (eType === 'error' || eType === 'warn' || eType === 'info' || eType === 'debug')
+			{
+				this.log(eType, message);
+			} 
+			else 
+			{
+				console.error('Unknown log type:', eType);
+			}
+		} 
+		catch (error) 
+		{
+			console.error('Error in LogManager:', error);
+		}
+	}
+
+	//--------------------------------------------------------------------------
 	//  when module gets first added, all internal functions and my
 	//  custom preferences will be initialized so that they can be used
 	//--------------------------------------------------------------------------
 
 	async init(config) {
-		this.config = config
-		//this.updateStatus(InstanceStatus.Ok)
-		this.updateActions() // export actions
-		this.updatePresets()// export presets
-		this.updateFeedbacks() // export feedbacks
-		this.updateVariableDefinitions() // export variable definitions
-		this.initCGPlus(config) // initialize
-		await this.checkConnectionStatus(this.config) // check connection status
-		
+		this.config = config;
+		this.updateActions(); // export actions
+		this.updatePresets(); // export presets
+		this.updateFeedbacks(); // export feedbacks
+		this.updateVariableDefinitions(); // export variable definitions
+		await this.initCGPlus(config); // initialize
+		this.configuredPages = []; // Initialize configuredPages as an empty array
 	}
 
 	//--------------------------------------------------------------------------
@@ -89,10 +114,22 @@ class CGPlusModule extends InstanceBase {
 	//  endpoint in the configuration
 	//--------------------------------------------------------------------------
 
-	initCGPlus = (config) => {
-		this.log('initCGPlus', config)
-		this.GetApi = new CGPlus(config.host, config.port)
-		this.KeyPad = new Keypad()
+	initCGPlus = async (config) => 
+	{
+
+		if(config.host != '' && config.port != '' && config.channel != '')
+		{
+			this.GetApi = new CGPlus(config.host, config.port,this.LogManager)
+			this.KeyPad = new Keypad()
+			this.updateStatus(InstanceStatus.Connecting);
+			await this.checkConnectionStatus(config)
+		}
+		else
+		{
+			//console.log("CONFIGS:",config)
+			this.updateStatus(InstanceStatus.ConnectionFailure);
+			this.LogManager("warn","Missing configuration for the module")
+		}
 	}
 
 	//--------------------------------------------------------------------------
@@ -103,67 +140,110 @@ class CGPlusModule extends InstanceBase {
 	//--------------------------------------------------------------------------
 
 	async checkConnectionStatus(config) {
-		this.log('checkConnectionStatus');
+		this.selectedChannel = "Channel " + config.channel;
 	
-		let res = await this.GetApi.Connect();
-	
-		console.log('res', res);
-	
-		if (res) {
-			let channels = await this.GetApi.GetChannels();
-	
-			if (this.checkIfChannelIsActive(channels, "Channel " + config.channel)) {
-				this.selectedChannel = "Channel " + config.channel;
-				this.log('CONNECTION SUCCESSFUL');
-				this.updateStatus(InstanceStatus.Ok);
-	
-				 // Move the declaration inside the method
-	
-				this.createclock = setInterval(async () => {
-					//console.log("Before tmpCounter increment:", this.tmpCounter);
-				
-					if (this.tmpCounter < 6) {
-						this.tmpCounter += 1;
-						
+		const connectAndSetup = async () => {
+			try {
+				const isConnected = await this.connectionManager();
+				if (isConnected) {
+					const channels = await this.GetApi.GetChannels();
+					if (channels != null && this.checkIfChannelIsActive(channels, "Channel " + config.channel)) {
+						this.LogManager('info', 'CONNECTION SUCCESSFUL');
+						this.updateStatus(InstanceStatus.Ok);
+						this.setupIntervals();
 					} else {
-						this.tmpCounter = 0;
-						this.tmpActivePages = [];
+						this.LogManager('error', 'Connection failed');
+						this.updateStatus(InstanceStatus.ConnectionFailure);
+						clearInterval(this.connectionManagerClock); // Clear the connection interval
 					}
-				
-					//console.log("After tmpCounter increment:", this.tmpCounter);
-				
-					await this.setOnAirStatus();
-					this.flipflop = await this.GetApi.GetFlipFlop()
-					this.autoPreview = await this.GetApi.GetTagsAutoPreview()
-					//console.log("FlipFlop is Active?  ->",this.flipflop)
-					//console.log("AutoPreview is Active?  ->",this.autoPreview)
-
-				}, 300);
-	
-				this.createFeedClock = setInterval(async () => {
-					this.feedChecker();
-				}, 100);
-
-				this.createConfiguredChannelsClock = setInterval(async () => {
-					await this.setConfiguredPages()
-				}, 5000);
-
-			} else {
-				this.log('error', 'no connection');
-				this.updateStatus(InstanceStatus.UnknownError);
+				} else {
+					this.LogManager('error', 'Connection failed. Retrying...');
+					this.updateStatus(InstanceStatus.ConnectionFailure);
+					clearInterval(this.connectionManagerClock); // Clear the connection interval
+					setTimeout(connectAndSetup, 5000); // Retry after 5 seconds
+				}
+			} catch (error) {
+				this.LogManager('error', 'Error during connection attempt: ' + error);
+				this.clearIntervals();
+				setTimeout(connectAndSetup, 5000); // Retry after 5 seconds
 			}
-		} else {
-			this.log('error', 'no connection');
-			this.updateStatus(InstanceStatus.UnknownError);
+		};
+	
+		connectAndSetup();
+	
+		// Set up interval for connection management
+		this.connectionManagerClock = setInterval(connectAndSetup, 5000);
+	}
+	
+	async connectionManager() {
+		try {
+			const res = await this.GetApi.Connect();
+			this.LogManager('info', 'Connection status: ' + res);
+			return res;
+		} catch (error) {
+			this.LogManager('error', 'API connection error: ' + error);
+			return false;
 		}
 	}
 	
+	setupIntervals() {
+		// Clear existing intervals if any
+		this.clearIntervals();
+	
+		// Set up intervals for various tasks
+		this.createclock = setInterval(async () => {
+			if (this.tmpCounter < 6) {
+				this.tmpCounter += 1;
+			} else {
+				this.tmpCounter = 0;
+				this.tmpActivePages = [];
+			}
+	
+			await this.setOnAirStatus();
+			this.flipflop = await this.GetApi.GetFlipFlop();
+			this.autoPreview = await this.GetApi.GetTagsAutoPreview();
+		}, 500);
+	
+		this.createFeedClock = setInterval(async () => {
+			this.feedChecker();
+		}, 100);
+	
+		this.createConfiguredChannelsClock = setInterval(async () => {
+			await this.setConfiguredPages();
+		}, 5000);
+	
+		// Check connection status periodically
+		this.connectionStatusCheckClock = setInterval(async () => {
+			const isConnected = await this.connectionManager();
+			if (!isConnected) {
+				this.LogManager('error', 'Disconnected. Attempting to reconnect...');
+				clearInterval(this.createclock);
+				clearInterval(this.createFeedClock);
+				clearInterval(this.createConfiguredChannelsClock);
+				clearInterval(this.connectionStatusCheckClock); // Stop checking connection status
+				this.checkConnectionStatus(this.config); // Attempt reconnection
+			}
+		}, 10000); // Check connection status every 10 seconds
+	}
+	
+	clearIntervals() {
+		clearInterval(this.createclock);
+		clearInterval(this.createFeedClock);
+		clearInterval(this.createConfiguredChannelsClock);
+		clearInterval(this.connectionStatusCheckClock);
+	}
 
 	//--------------------------------------------------------------------------
 	//  Function calledto compare new status with savede status
 	//--------------------------------------------------------------------------
 
 	CompareStatus(arr1, arr2) {
+		// Check if arr1 and arr2 are arrays
+		if (!Array.isArray(arr1) || !Array.isArray(arr2)) {
+			return false;
+		}
+	
+		// Check if the lengths are different
 		if (arr1.length !== arr2.length) {
 			return false;
 		}
@@ -189,7 +269,7 @@ class CGPlusModule extends InstanceBase {
 	}
 
 	//--------------------------------------------------------------------------
-	//  Function called inside clock, will call status api and will save on air
+	//  Polling Function, will call status api and will save on air
 	//  pages, this data will then be use by feedbacks and actions (keep all responsive)
 	//--------------------------------------------------------------------------
 	
@@ -302,7 +382,7 @@ class CGPlusModule extends InstanceBase {
 
 	//--------------------------------------------------------------------------
 	//  toggles beetween last channel and preview (basically a toggle) and 
-	//  this permits the user to easily 
+	//  this permits the user to easily switch between them
 	//--------------------------------------------------------------------------
 	
 	isPreview() {
@@ -319,8 +399,9 @@ class CGPlusModule extends InstanceBase {
 	}
 
 	//--------------------------------------------------------------------------
-	//  toggles beetween last channel and preview (basically a toggle) and 
-	//  this permits the user to easily 
+	// Returns wether the preview or the program are blank (no page On Air)
+	// idk why only the program has a blank object when empty while the prw doesn't
+	// wont ask questions about it :|
 	//--------------------------------------------------------------------------
 	
 	isBlank() {
@@ -364,7 +445,7 @@ class CGPlusModule extends InstanceBase {
 	}
 
 	//--------------------------------------------------------------------------
-	// returns pagetype (single multi)
+	// returns pagetype (single/multi)
 	//--------------------------------------------------------------------------
 
 	pageType(string){
@@ -389,32 +470,27 @@ class CGPlusModule extends InstanceBase {
 	//--------------------------------------------------------------------------
 
 	isPageActive(searchString) {
-
-		let type = this.pageType(searchString)
-		let status = [...this.onAirStatus]
-
-		//let tmpActive = this.tmpActivePages
-
-		if(this.tmpActivePages.length>0 && this.tmpActivePages.includes(searchString)){
-			return true
+		let type = this.pageType(searchString);
+		let status = Array.isArray(this.onAirStatus) ? [...this.onAirStatus] : [];
+	
+		// Check if the page is active in temporary pages
+		if (this.tmpActivePages.length > 0 && this.tmpActivePages.includes(searchString)) {
+			return true;
 		}
-
+	
 		for (const obj of status) {
-
-			if(type == "Number"){
-
-				if (obj.Name === ('Page' +searchString)) {
-					return true
+			if (type === "Number") {
+				if (obj.Name === ('Page' + searchString)) {
+					return true;
 				}
-
-			}else if(type == "Character"){
-
+			} else if (type === "Character") {
 				if (obj.Index === searchString) {
-					return true
+					return true;
 				}
 			}
 		}
-		return false
+	
+		return false;
 	}
 
 	//--------------------------------------------------------------------------
@@ -423,77 +499,54 @@ class CGPlusModule extends InstanceBase {
 	//--------------------------------------------------------------------------
 
 	async isPageSet(searchString) {
-
-		let type = this.pageType(searchString)
-
-		let objectArray = this.configuredPages
-
+		let type = this.pageType(searchString);
+		let objectArray = this.configuredPages;
+	
+		// Check if objectArray is iterable
+		if (!Array.isArray(objectArray)) {
+			//console.error('configuredPages is not an array:', objectArray);
+			return false;
+		}
+	
 		for (const obj of objectArray) {
-
-			if(type == "Number"){
-
-				if (obj.Index === (searchString.toString())) {
-
-					var pageObjects 
-					
-					if(this.isPreview()){
-						pageObjects =await this.GetApi.GetPageObjects(this.lastChannel,obj.Name)
-					}else{
-						pageObjects =await this.GetApi.GetPageObjects(this.selectedChannel,obj.Name)
-					}
-					//console.log("pageName: " + obj.Name)
-					if(pageObjects.length>0){
-						return true
-					}else{
-						return false
-					}
-					
-				}
-
-			}else if(type == "Character"){
-
-				if (obj.Index === searchString) {
-
-					var pageObjects 
-
-					if(this.isPreview()){
-						pageObjects =await this.GetApi.GetPageObjects(this.lastChannel,obj.Name)
-					}else{
-						pageObjects =await this.GetApi.GetPageObjects(this.selectedChannel,obj.Name)
-					}
-
-					if(pageObjects.length>0){
-						return true
-					}else{
-						return false
-					}
-
-				}
+			if (type === "Number" && obj.Index === searchString.toString()) {
+				const pageObjects = await this.getPageObjects(obj.Name);
+				return pageObjects?.length > 0;
+			} else if (type === "Character" && obj.Index === searchString) {
+				const pageObjects = await this.getPageObjects(obj.Name);
+				return pageObjects?.length > 0;
 			}
 		}
-		return false
+		
+		return false;
+	}
+	
+	async getPageObjects(pageName) {
+		const channel = this.isPreview() ? this.lastChannel : this.selectedChannel;
+		return await this.GetApi.GetPageObjects(channel, pageName);
 	}
 
 	//--------------------------------------------------------------------------
 	//  When module gets deleted, cleanup
 	//--------------------------------------------------------------------------
 
-	async destroy() {
-		this.log('debug', 'destroy')
+	async destroy() 
+	{
+		this.LogManager('error', 'destroy')
 		clearInterval(this.createClock)
 		clearInterval(this.createFeedClock)
 		clearInterval(this.createConfiguredChannelsClock)
+		clearInterval(this.connectionManagerClock)
 	}
 
 	//--------------------------------------------------------------------------
 	//  When Config is updated (Reinitialization of api class (Endpoint Changes))
 	//--------------------------------------------------------------------------
 
-	async configUpdated(config) {
-		
-		//console.log('CONFIGS !!! UPDATED', this.config)
+	async configUpdated(config) 
+	{
 		this.config = config
-		console.log('CONFIGS UPDATED', this.config)
+		//console.log('CONFIGS UPDATED', this.config)
 		this.initCGPlus(config)
 		await this.checkConnectionStatus(config) // check connection status
 		this.updateActions() // export actions
@@ -502,31 +555,34 @@ class CGPlusModule extends InstanceBase {
 		this.updateVariableDefinitions() // export variable definitions
 	}
 
-	
-
 	//--------------------------------------------------------------------------
 
-	updateActions() {
+	updateActions() 
+	{
 		UpdateActions(this)
 	}
 
 	//--------------------------------------------------------------------------
 
-	updatePresets(){
+	updatePresets()
+	{
 		UpdatePresets(this)
 	}
 
 	//--------------------------------------------------------------------------
 
-	updateFeedbacks() {
+	updateFeedbacks() 
+	{
 		UpdateFeedbacks(this)
 	}
 
 	//--------------------------------------------------------------------------
 
-	updateVariableDefinitions() {
+	updateVariableDefinitions() 
+	{
 		UpdateVariableDefinitions(this)
 	}
+
 
 	//--------------------------------------------------------------------------
 }
