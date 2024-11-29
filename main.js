@@ -344,7 +344,7 @@ class CGPlusModule extends InstanceBase {
 	async setConfiguredPages() {
 
 		let res = await this.GetApi.GetPages(this.config.channel);
-		console.log("Configured pages:",res);
+		//console.log("Configured pages:",res);
 		this.configuredPages = res;
 		
 	}
@@ -529,7 +529,7 @@ class CGPlusModule extends InstanceBase {
 	//--------------------------------------------------------------------------
 
 	async isPageSet(searchString) {
-		console.log("isPageSet",searchString)
+		//console.log("isPageSet",searchString)
 
 		let objectArray = this.configuredPages;
 	
