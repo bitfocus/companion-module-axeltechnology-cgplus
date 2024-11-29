@@ -344,7 +344,7 @@ class CGPlusModule extends InstanceBase {
 	async setConfiguredPages() {
 
 		let res = await this.GetApi.GetPages(this.config.channel);
-		//console.log("Configured pages:",res);
+		console.log("Configured pages:",res);
 		this.configuredPages = res;
 		
 	}
@@ -529,7 +529,8 @@ class CGPlusModule extends InstanceBase {
 	//--------------------------------------------------------------------------
 
 	async isPageSet(searchString) {
-		let type = this.pageType(searchString);
+		console.log("isPageSet",searchString)
+
 		let objectArray = this.configuredPages;
 	
 		// Check if objectArray is iterable
@@ -537,18 +538,10 @@ class CGPlusModule extends InstanceBase {
 			//console.error('configuredPages is not an array:', objectArray);
 			return false;
 		}
-	
-		for (const obj of objectArray) {
-			if (type === "Number" && obj.Index === searchString.toString()) {
-				const pageObjects = await this.getPageObjects(obj.Name);
-				return pageObjects?.length > 0;
-			} else if (type === "Character" && obj.Index === searchString) {
-				const pageObjects = await this.getPageObjects(obj.Name);
-				return pageObjects?.length > 0;
-			}
-		}
-		
-		return false;
+		// Check if a matching Name exists and fetch page objects
+		const exists = objectArray.some(obj => obj.Name === "Page"+searchString);
+
+		return exists;
 	}
 	
 	async getPageObjects(pageName) {

@@ -2,7 +2,7 @@
 	"id": "axeltechnology-cgplus",
 	"name": "axeltechnology-cgplus",
 	"shortname": "CG Plus",
-	"description": "Axel: CG_Plus",
+	"description": "Axel CG_Plus",
 	"version": "0.0.0",
 	"license": "MIT",
 	"repository": "git+https://https://github.com/bitfocus/companion-module-axeltechnology-cgplus.git",
